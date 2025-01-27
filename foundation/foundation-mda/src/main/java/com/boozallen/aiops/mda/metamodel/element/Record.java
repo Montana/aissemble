@@ -10,6 +10,7 @@ package com.boozallen.aiops.mda.metamodel.element;
  * #L%
  */
 
+import com.boozallen.aiops.mda.metamodel.AissembleModelInstanceRepository;
 import org.technologybrewery.fermenter.mda.metamodel.element.NamespacedMetamodel;
 
 import java.util.Collection;
@@ -48,6 +49,15 @@ public interface Record extends NamespacedMetamodel {
      * @return fields
      */
     List<RecordField> getFields();
+
+
+    /**
+     * Returns the fields contained in this field container.
+     *
+     * @return fields
+     */
+    List<String> getFieldIds(AissembleModelInstanceRepository metadataRepo);
+
 
     /**
      * Returns the list of supported Frameworks (e.g. PySpark).

@@ -203,7 +203,7 @@ Feature: Specify record of semantically defined types
 
   Scenario: A record can reference another record as a field
     Given record B
-    Given record A has a relation to record B
+    And record A has a relation to record B
     When records are read
     Then the records are successfully created
     And you can reference record B from record A
@@ -213,3 +213,12 @@ Feature: Specify record of semantically defined types
     Given a record with a relation that does not define the required fields
     When records are read
     Then the relation has the correct default values
+
+  Scenario: A record that reference another record can produce a list of fields and a spark transform statement
+    Given record B
+    And record A has a relation to record B
+    And a list of encrypt fields
+    When records are read
+    Then a list of all fields can be obtained
+    And a spark transform expression can be crafted which includes all fields
+    

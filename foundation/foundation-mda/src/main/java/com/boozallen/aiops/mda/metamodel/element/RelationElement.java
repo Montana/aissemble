@@ -93,6 +93,16 @@ public class RelationElement extends NamespacedMetamodelElement implements Relat
     }
 
     /**
+     * Sets the documentation value.
+     *
+     * @param documentation
+     *            documentation text
+     */
+    public void setFieldRepresentation(String fieldRepresentation) {
+        this.fieldRepresentation = fieldRepresentation;
+    }
+
+    /**
      * Sets the multiplicity value.
      * 
      * @param multiplicityAsString

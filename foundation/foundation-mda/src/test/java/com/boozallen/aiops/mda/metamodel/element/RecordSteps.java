@@ -17,11 +17,16 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import com.boozallen.aiops.mda.generator.common.FrameworkEnum;
+import com.boozallen.aiops.mda.metamodel.element.util.RecordFieldEncryptionUtil;
+import com.boozallen.aissemble.data.encryption.policy.json.EncryptionPolicyInput;
+import com.boozallen.aissemble.data.encryption.policy.config.EncryptAlgorithm;
+
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -42,6 +47,7 @@ public class RecordSteps extends AbstractModelInstanceSteps {
 
     public static final String TEST_RECORD_RELATIONS = "test.record.relations";
     protected String recordPackageName;
+    protected List<String> encryptFields;
     protected Record record;
     protected boolean encounteredError;
 
@@ -489,10 +495,19 @@ public class RecordSteps extends AbstractModelInstanceSteps {
         RelationElement recordRelation = new RelationElement();
         recordRelation.setName(relation.type);
         recordRelation.setPackage(relation.relationPackage);
+        recordRelation.setFieldRepresentation("FieldBParent");
         recordRelation.setDocumentation(relation.documentation);
         recordRelation.setMultiplicity(relation.multiplicity);
 
         newRecord.addRelation(recordRelation);
+
+        RecordFieldElement field = new RecordFieldElement();
+        field.setName("FieldA");
+        RecordFieldTypeElement type = new RecordFieldTypeElement();
+        type.setName("ssn");
+        field.setType(type);
+        newRecord.addField(field);
+
         saveRecordToFile(newRecord);
         return newRecord;
     }
@@ -530,6 +545,46 @@ public class RecordSteps extends AbstractModelInstanceSteps {
             assertEquals("Child relation should default multiplicity to 1-M", Relation.Multiplicity.ONE_TO_MANY,
                     childRelation.getMultiplicity());
         }
+
+    @Given("a list of encrypt fields")
+    public void a_list_of_encrypt_fields() {
+        encryptFields = new ArrayList<>();
+        encryptFields.add("FieldBParent.FieldB");
+    }
+
+    @Then("a list of all fields can be obtained")
+    public void a_list_of_all_fields_can_be_obtained() {
+        List<String> aFieldIds = getRecordAFields();
+
+        assertTrue("FieldA missing from field list", aFieldIds.contains("FieldA"));
+        assertTrue("FieldBParent.FieldB missing from field list", aFieldIds.contains("FieldBParent.FieldB"));
+    }
+
+    private List<String> getRecordAFields() {
+        Record aRecord = this.metadataRepo.getRecord(TEST_RECORD_RELATIONS,"RecordA");
+
+        List<String> aFieldIds = aRecord.getFieldIds(metadataRepo);
+        return aFieldIds;
+    }
+
+    @Then("a spark transform expression can be crafted which includes all fields")
+    public void a_spark_transform_expression_can_be_crafted_which_includes_all_fields() {
+        final String expectedTransform = "transform(data, x -> struct(x.FieldA as FieldA, " +
+                "struct(encryptUDF(x.FieldBParent.FieldB,\"AES_ENCRYPT\") as FieldB) as data))";
+
+        List<String> aFieldIds = getRecordAFields();
+
+        RecordFieldEncryptionUtil recordFieldEncryptionUtil = new RecordFieldEncryptionUtil();
+
+        EncryptionPolicyInput encryptionPolicyInput = new EncryptionPolicyInput();
+        encryptionPolicyInput.setEncryptFields(encryptFields);
+        encryptionPolicyInput.setEncryptAlgorithm(EncryptAlgorithm.AES_ENCRYPT);
+
+        String transformStatement = recordFieldEncryptionUtil.generateFieldEncryptionTransform(aFieldIds, encryptionPolicyInput);
+        System.out.println(" === === === === transformStatement === === === === ");
+        System.out.println(transformStatement);
+
+        assertTrue("Transform statement was not in the expected format", transformStatement.equals(expectedTransform));
     }
 }
 

@@ -56,6 +56,7 @@ public class PipelineSteps extends AbstractModelInstanceSteps {
     public static final String DO_MODIFY_REGEX = "DO\\s+MODIFY";
     public static final String ABSTRACT_DATA_ACTION_IMPL_INHERIT_REGEX = "AbstractDataActionImpl\\(AbstractDataAction\\):";
     public static final String ABSTRACT_PIPELINE_STEP_INHERIT_REGEX = "AbstractPipelineStep\\(AbstractDataActionImpl\\)";
+    public static final String TEST_RECORD_RELATIONS = "test.record.relations";
 
     protected Pipeline pipeline;
     protected Pipeline dataFLowPipeline;
@@ -966,5 +967,102 @@ public class PipelineSteps extends AbstractModelInstanceSteps {
 
         return steps;
     }
+
+
+    @Given("a valid data delivery pipeline with native inbound type")
+    public void a_valid_data_delivery_pipeline_with_native_inbound_type() throws IOException {
+        RecordElement newRecordB = createNewRecordWithNameAndPackage("RecordB", RELATION_PACKAGE);
+        saveRecordToFile(newRecordB);
+
+        RecordElement nativeRecord = createNewRecordWithNameAndPackage("RecordA", TEST_RECORD_RELATIONS);
+
+        RelationElement recordRelation = new RelationElement();
+        recordRelation.setName("RecordB");
+        recordRelation.setPackage(RELATION_PACKAGE);
+        recordRelation.setFieldRepresentation("FieldBParent");
+        recordRelation.setDocumentation("Some Documentation");
+        recordRelation.setMultiplicity("1-1");
+
+        nativeRecord.addRelation(recordRelation);
+        saveRecordToFile(nativeRecord);
+
+        PipelineElement newPipeline = TestMetamodelUtil.createPipelineWithType("nativeDataDelivery", "com.boozallen.aiops.test", "data-flow", "versioned-streaming-spark-java");
+
+        StepElement step = new StepElement();
+        step.setName("inbound-step");
+        step.setType("synchronous");
+
+        PersistElement persist = new PersistElement();
+        persist.setType("delta-lake");
+        step.setPersist(persist);
+
+        StepDataBindingElement inbound = new StepDataBindingElement();
+        inbound.setType("native");
+        inbound.setChannelName("unit-test-inbound");
+        inbound.setChannelType("topic");
+
+        StepDataRecordTypeElement stepDataRecordTypeElement = new StepDataRecordTypeElement();
+        stepDataRecordTypeElement.setName("RecordA");
+        stepDataRecordTypeElement.setPackage(TEST_RECORD_RELATIONS);
+        inbound.setRecordType(stepDataRecordTypeElement);
+        step.setInbound(inbound);
+
+        StepDataBindingElement outbound = new StepDataBindingElement();
+        outbound.setType("messaging");
+        outbound.setChannelName("unit-test-outbound");
+        outbound.setChannelType("queue");
+        step.setOutbound(outbound);
+
+        for (int j = 0; j < RandomUtils.insecure().randomInt(0, 4); j++) {
+            ConfigurationItemElement configurationItem = new ConfigurationItemElement();
+            configurationItem.setKey(RandomStringUtils.insecure().nextAlphanumeric(3));
+            configurationItem.setValue(RandomStringUtils.insecure().nextAlphanumeric(10));
+            step.addConfigurationItem(configurationItem);
+        }
+
+        newPipeline.addStep(step);
+
+        pipelineFile = savePipelineToFile(newPipeline);
+    }
+
+    private RecordElement createNewRecordWithNameAndPackage(String name, String packageName) {
+        RecordElement newRecord = new RecordElement();
+        if (StringUtils.isNotBlank(name)) {
+            newRecord.setName(name);
+        }
+
+        if (StringUtils.isNotBlank(packageName)) {
+            newRecord.setPackage(packageName);
+        }
+
+        return newRecord;
+    }
+
+    private RecordElement createNewRecordWithRelations(String name, String packageName) {
+        RecordElement newRecordB = createNewRecordWithNameAndPackage("RecordB", RELATION_PACKAGE);
+        RecordFieldElement field = new RecordFieldElement();
+        field.setName("FieldB");
+        RecordFieldTypeElement type = new RecordFieldTypeElement();
+        type.setName("phoneNumber");
+        field.setType(type);
+        newRecordB.addField(field);
+        saveRecordToFile(newRecordB);
+
+        return newRecordB;
+    }
+
+    @Then("the native inbound pipeline can be read")
+    public void the_native_inbound_pipeline_can_be_read() {
+        pipeline = JsonUtils.readAndValidateJson(pipelineFile, PipelineElement.class);
+        List<? extends Step> mySteps = pipeline.getSteps();
+
+        for(Step mystep: mySteps) {
+            StepDataBinding myInbound = mystep.getInbound();
+            StepDataRecordType stepDataRecordType = myInbound.getRecordType();
+            Record myRecord = stepDataRecordType.getRecordType();
+
+        }
+    }
+
 
 }

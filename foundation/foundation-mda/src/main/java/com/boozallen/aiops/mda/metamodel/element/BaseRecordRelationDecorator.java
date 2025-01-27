@@ -48,6 +48,11 @@ public class BaseRecordRelationDecorator implements Relation {
     }
 
     @Override
+    public String getFieldRepresentation() {
+        return wrapped.getFieldRepresentation();
+    }
+
+    @Override
     public String getPackage() {
         return wrapped.getPackage();
     }

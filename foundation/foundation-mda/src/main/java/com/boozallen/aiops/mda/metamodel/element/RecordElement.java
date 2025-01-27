@@ -11,6 +11,7 @@ package com.boozallen.aiops.mda.metamodel.element;
  */
 
 import com.boozallen.aiops.mda.ManualActionNotificationService;
+import com.boozallen.aiops.mda.metamodel.AissembleModelInstanceRepository;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
@@ -20,6 +21,7 @@ import org.technologybrewery.fermenter.mda.metamodel.element.NamespacedMetamodel
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Represents a record instance.
@@ -89,6 +91,52 @@ public class RecordElement extends NamespacedMetamodelElement implements Record 
     @Override
     public List<RecordField> getFields() {
         return fields;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<String> getFieldIds(AissembleModelInstanceRepository metadataRepo) {
+        List<String> fieldIds = new ArrayList<>();
+        for(RecordField recordField: this.getFields()) {
+            fieldIds.add(recordField.getName());
+        }
+
+        List<String> relatedFieldIds = getFieldIdsFromRelations(metadataRepo);
+        fieldIds.addAll(relatedFieldIds);
+
+//        for(String relatedFieldId: relatedFieldIds) {
+//            fieldIds.add(relatedFieldId);
+//        }
+
+        return fieldIds;
+    }
+
+
+    private List<String> getFieldIdsFromRelations(AissembleModelInstanceRepository metadataRepo) {
+        List<String> fieldIds = new ArrayList<>();
+        List<Relation> relations =  getRelations();
+        for(Relation relation: relations) {
+            String relationPackage = relation.getPackage();
+            String relationName = relation.getName();
+            Record relatedRecord = metadataRepo.getRecord(relationPackage, relationName);
+
+            if(relatedRecord != null) {
+
+                List<String> updatedList = relatedRecord.getFieldIds(metadataRepo).stream()
+                        .map(s -> relation.getFieldRepresentation() + "." + s) // Prepend the prefix
+                        .collect(Collectors.toList());
+
+                fieldIds.addAll(updatedList);
+
+
+
+            }
+        }
+
+
+        return fieldIds;
     }
 
     /**
@@ -202,4 +250,8 @@ public class RecordElement extends NamespacedMetamodelElement implements Record 
     public void addRelation(Relation relation) {
         relations.add(relation);
     }
+
+
+
+
 }
