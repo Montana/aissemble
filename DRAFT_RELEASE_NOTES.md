@@ -15,6 +15,9 @@ Spark and PySpark have been upgraded from version 3.5.2 to 3.5.4.
 ## Record Relation
 To enable nested data records, we have added a new relation feature to the record metamodel. This allows records to reference other records. For more details, refer to the [Record Relation Options].(https://boozallen.github.io/aissemble/aissemble/current-dev/record-metamodel.html#_record_relation_options)
 
+## Helm Charts Resource Specification
+aissemble-spark-history-chart, aissemble-quarkus-chart, and aissemble-hive-metastore-service-chart have the option to specify deployment resources. See [the official Kubernetes documentation](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/) for configuration options.
+
 # Breaking Changes
 _Note: instructions for adapting to these changes are outlined in the upgrade instructions below._
 
