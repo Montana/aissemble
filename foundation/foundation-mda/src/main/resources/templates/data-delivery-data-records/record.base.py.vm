@@ -30,7 +30,7 @@ class ${record.capitalizedName}Base(ABC):
     #end
 
     #if ($pysparkSupport)
-
+## TODO update
     @classmethod
     def from_row(cls, row: Row):
         """

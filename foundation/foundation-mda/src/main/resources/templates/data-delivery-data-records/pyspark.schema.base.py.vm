@@ -34,6 +34,10 @@ class ${record.capitalizedName}SchemaBase(ABC):
 #foreach ($field in $record.fields)
     ${field.upperSnakecaseName}_COLUMN: str = '${field.sparkAttributes.columnName}'
 #end
+#foreach ($relation in $record.relations)
+    #set ($relationVars[$relation.name] = "${relation.upperSnakecaseName}_COLUMN")
+    ${relation.upperSnakecaseName}_COLUMN: str = '${relation.columnName}'
+#end
 
 
     def __init__(self):
@@ -47,8 +51,16 @@ class ${record.capitalizedName}SchemaBase(ABC):
         self.add(${record.capitalizedName}SchemaBase.${field.upperSnakecaseName}_COLUMN, ${field.shortType}(), ${nullable})
       #end
   #end
+  #foreach ($relation in $record.relations)
+      #set ($nullable = "#if($relation.isNullable())True#{else}False#end")
+      #if ($relation.isOneToManyRelation())
+        self.add(${record.capitalizedName}SchemaBase.${relation.upperSnakecaseName}_COLUMN, ArrayType(${relation.capitalizedName}Schema().struct_type), ${nullable})
+      #else
+        self.add(${record.capitalizedName}SchemaBase.${relation.upperSnakecaseName}_COLUMN, ${relation.capitalizedName}Schema().struct_type, ${nullable})
+      #end
+  #end
 
-  #if ($record.hasFields())
+  #if ($record.hasFields() || $record.hasRelations())
     def cast(self, dataset: DataFrame) -> DataFrame:
         """
         Returns the given dataset cast to this schema.
@@ -56,10 +68,16 @@ class ${record.capitalizedName}SchemaBase(ABC):
     #foreach ($field in $record.fields)
         ${field.snakeCaseName}_type = self.get_data_type(${record.capitalizedName}SchemaBase.${field.upperSnakecaseName}_COLUMN)
     #end
+    #foreach ($relation in $record.relations)
+        ${relation.snakeCaseName}_type = self.get_data_type(${record.capitalizedName}SchemaBase.${relation.upperSnakecaseName}_COLUMN)
+    #end
 
         return dataset \
         #foreach ($field in $record.fields)
-            .withColumn(${record.capitalizedName}SchemaBase.${field.upperSnakecaseName}_COLUMN, dataset[${record.capitalizedName}SchemaBase.${field.upperSnakecaseName}_COLUMN].cast(${field.snakeCaseName}_type))#if ($foreach.hasNext) \\#end
+            .withColumn(${record.capitalizedName}SchemaBase.${field.upperSnakecaseName}_COLUMN, dataset[${record.capitalizedName}SchemaBase.${field.upperSnakecaseName}_COLUMN].cast(${field.snakeCaseName}_type))#if ($foreach.hasNext || $record.hasRelations()) \\#end
+        #end
+        #foreach ($relation in $record.relations)
+            .withColumn(${record.capitalizedName}SchemaBase.${relation.upperSnakecaseName}_COLUMN, dataset[${record.capitalizedName}SchemaBase.${relation.upperSnakecaseName}_COLUMN].cast(${relation.snakeCaseName}_type))#if ($foreach.hasNext) \\#end
         #end
   #end
 
@@ -130,7 +148,7 @@ class ${record.capitalizedName}SchemaBase(ABC):
         data_with_validations = data_with_validations.withColumn("${field.upperSnakecaseName}_MATCHES_SCALE", col("${columnName}").cast(StringType()).rlike(r"^[0-9]*(?:\.[0-9]{0,${field.getValidation().getScale()}})?$"))
         #end
         #if (${field.getValidation().getMinLength()})
-        data_with_validations = data_with_validations.withColumn("${field.upperSnakecaseName}_GREATER_THAN_MAX_LENGTH", col("${columnName}").rlike("^.{${field.getValidation().getMinLength()},}"))
+        data_with_validations = data_with_validations.withColumn("${field.upperSnakecaseName}_GREATER_THAN_MIN_LENGTH", col("${columnName}").rlike("^.{${field.getValidation().getMinLength()},}"))
         #end
         #if (${field.getValidation().getMaxLength()})
         data_with_validations = data_with_validations.withColumn("${field.upperSnakecaseName}_LESS_THAN_MAX_LENGTH", col("${columnName}").rlike("^.{${field.getValidation().getMaxLength()},}").eqNullSafe(False))
